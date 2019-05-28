@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Profile</title>
+        <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css">
+        <link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css">
+        <link href="./images" rel="">
+        <style>
+            body {
+                padding-top:80px; word-wrap:break-word;
+            }
+            canvas {
+                text-align: center;
+                margin: 0 auto;
+                display: block;
+                /* width: 300px;
+                height: 400px; */
+            }
+            video {
+                /* text-align: center; */
+                margin: 0 auto;
+                display: block;
+                width: 400px;
+                height: 500px;
+            }
+            .center {
+                margin: 0 auto;
+            }
+            .booth {
+                width: 500px;
+                background-color: #ccc;
+                border: 10px solid #ddd;
+                margin: 0 auto;
+            }
+            .booth-capture-button {
+                display: block;
+                margin: 10px 0;
+                padding: 10px 20px;
+                background-color: cornflowerblue;
+                color: #fff;
+                text-align: center;
+                text-decoration: none;
+            }
+        </style>
+    </head>
+    <body>
+    <div class="container">
+
+        <div class="page-header text-center">
+            <h1><span class="fa fa-anchor"></span> Profile Page</h1>
+            <a href="/logout" class="btn btn-default btn-sm">Logout</a>
+            <a href="/account" class="btn btn-default btn-sm">Account</a>
+            <a href="/gallery/1" class="btn btn-default btn-sm">Gallery</a>
+        </div>
+        <div class="booth">
+            <video autoplay="true" id="videoElement">
+                
+            </video>
+            <label for="sticker">Stickers</label>
+            <select id="sticker" class="btn btn-default">
+                <option value="">None</option>
+                <option value="/public/images/pikachu.png">Pikachu</option>
+                <option value="/public/images/Batman-And-Robin-PNG-Picture.png">Batman</option>
+                <option value="/public/images/Dark-Souls-Remastered-Transparent-PNG.png">Dark Souls</option>
+                <option value="/public/images/580b57fcd9996e24bc43c319.png">Test</option>
+            </select><br/>
+            <a href="#" id="capture" class="btn btn-default btn-block">Take Photo</a>
+            <canvas id="canvas" width="400" height="300">
+                <img src="/public/images/580b57fcd9996e24bc43c319.png">
+                <img src="/public/images/pikachu.png">
+                <img src="/public/images/Batman-And-Robin-PNG-Picture.png">
+                <img src="/public/images/Dark-Souls-Remastered-Transparent-PNG.png">
+            </canvas>
+            <form method="post" action="/post" enctype='multipart/form-data'>
+                <input type="hidden" id="image" name="web_cap">
+                <input type="file" id="insert" class="btn btn-default btn-block" name='insert' />
+                <input type="submit" class="btn btn-default btn-block" value="Upload"/>
+            </form>
+        </div>
+
+    </div>
+    </body>
+    <script>
+        var video = document.querySelector("#videoElement");
+        // var video = document.getElementById('videoElement');
+        var canvas = document.getElementById('canvas');
+        var context = canvas.getContext('2d');
+        var image = new Image();
+
+        // image.src = document.getElementById('sticker').value;
+
+        if (navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function (stream) {
+            video.srcObject = stream;
+            })
+            .catch(function (err0r) {
+            console.log("Something went wrong!");
+            });
+        }
+        document.getElementById('capture').addEventListener('click', function() {
+            image.src = document.getElementById('sticker').value;
+            context.drawImage(video, 0, 0, 400, 300);
+            context.drawImage(image, 200, 150, 200, 150);
+            console.log(image.src);
+            image.setAttribute('src', canvas.toDataURL('image/png'));
+            document.getElementById('image').value = canvas.toDataURL('image/png');
+            //console.log(document.getElementById('image').value);
+        });
+        function encodeImageFileAsURL(element) {
+            var file = element.files[0];
+            var reader = new FileReader();
+            reader.onloadend = function() {
+                console.log('RESULT', reader.result)
+            }
+            reader.readAsDataURL(file);
+        }
+            // (function() {
+            //     var canvas = document.getElementById('canvas');
+            //     var context = canvas.getContext('2d');
+            //     var video = document.getElementById('video');
+            //     var image = new Image();
+
+            //     image.src = document.getElementById('sticker').value;
+
+            //     if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            //         navigator.mediaDevices.getUserMedia({
+            //             video: true 
+            //         }).then(function(stream) {
+            //             video.srcObject = stream;
+            //             video.play();
+            //         });
+            //     }
+
+            //     document.getElementById('capture').addEventListener('click', function() {
+            //         image.src = document.getElementById('sticker').value;
+            //         context.drawImage(video, 0, 0, 400, 300);
+            //         context.drawImage(image, 200, 150, 200, 150,);
+            //         photo.setAttribute('src', canvas.toDataURL('image/png'));
+            //         document.getElementById('image').value = canvas.toDataURL('image/png');
+            //         //console.log(document.getElementById('image').value);
+            //     });
+
+            // })();
+// (function() {
+//     var video = document.getElementById('video')
+//         canvas = document.getElementById('canvas'),
+//         context = canvas.getContext('2d'),
+//         photo = document.getElementById('photo'),
+//         vendorUrl = window.URL || window.webkitURL;
+        
+//     navigator.getMedia =    navigator.getUserMedia ||
+//                             navigator.webkitGetUserMedia ||
+//                             navigator.mozGetUserMedia ||
+//                             navigator.msGetUserMedia;
+
+//     navigator.getMedia({
+//         video: true,
+//         audio: false
+//     }, function(stream) {
+//         video.srcObject = stream;
+//         video.play();
+//     }, function(error) {
+//         console.log("Error: " + error);
+//     });
+
+//     document.getElementById('capture').addEventListener('click', function() {
+//         context.drawImage(video, 0, 0, 400, 300);
+//     });
+// })();
+    </script>
+</html>
