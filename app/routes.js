@@ -7,15 +7,17 @@ var ImageModel   = require('../app/models/img');
 var CommentModel = require('../app/models/comment');
 var User         = require('../app/models/user');
 var nodemailer   = require('nodemailer');
+var crypto       = require('crypto');
 var transporter  = nodemailer.createTransport({
                     service: 'gmail',
                     auth: {
-                        user: 'tristan456jones@gmail.com',
+                        user: 'camagru.co@gmail.com',
                         pass: 'lolajones'
                     }
                     });
 var newImg       = new ImageModel();
 var newComment   = new CommentModel();
+var newUser      = new User();
 var comments     = [];
 var image;
 var betaimage;
@@ -110,14 +112,18 @@ module.exports = function(app, passport) {
 
     app.get('/settings/:id', function(req, res) {
         var id = req.params.id;
-        if (isEmptyObject(req.user.google.name)) {
-            var username = req.user.local.email;
-        }
-        else {
-            var username = req.user.google.name;
-            res.redirect('/profile');
-        }
-        String.prototype.hashCode = function() {
+        User.findOne({'local.verifyNumber' : id}, { findAndModify: false}).exec(function(err, data) {
+            if (data) {
+                name = data.local.email;
+            }
+            else {
+                console.log("Error: " + err);
+            }
+            doSomethingElse(data);
+        });
+        function doSomethingElse(name) {
+            var username = name.local.email;
+            String.prototype.hashCode = function() {
                                         var hash = 0, i, chr;
                                         if (this.length === 0) return hash;
                                         for (i = 0; i < this.length; i++) {
@@ -127,16 +133,15 @@ module.exports = function(app, passport) {
                                         }
                                         return hash;
                                     };
-        var address = username.hashCode();
-        console.log(address);
-        console.log(id);
-        if (address == id) {
-            console.log("Success");
-            console.log(req);
-            res.render('account.ejs', { message: req.flash('accountMessage') });
-        }
-        else {
-            res.redirect('/profile');
+            var address = username.hashCode();
+            console.log(address);
+            if (address == id) {
+                console.log("Success");
+                res.render('account.ejs', { message: req.flash('accountMessage') });
+            }
+            else {
+                res.redirect('/profile');
+            }
         }
     })
 
@@ -168,65 +173,95 @@ module.exports = function(app, passport) {
 
         transporter.sendMail(mailOptions, function(error, info){
         if (error) {
-            console.log(error);
+            console.log("Error with E-mail" + error);
         } else {
             console.log('Email sent: ' + info.response);
         }
         });
-        res.redirect('/profile');
+        User.findOneAndUpdate({'local.email' : email}, {'local.verifyNumber' : address}).exec(function(err, data) {
+            if (data) {
+                console.log("Verify Code Saved");
+            }
+            else {
+                console.log("Error Saving Verify Code: " + err);
+                res.redirect('/profile');
+            }
+        });
+        req.logout();
+        res.redirect('/login');
     });
 
     app.get('/verify/:id', function(req, res) {
         var id = req.params.id;
-        var username = req.user.local.email;
-        String.prototype.hashCode = function() {
-                                        var hash = 0, i, chr;
-                                        if (this.length === 0) return hash;
-                                        for (i = 0; i < this.length; i++) {
-                                            chr   = this.charCodeAt(i);
-                                            hash  = ((hash << 5) - hash) + chr;
-                                            hash |= 0; // Convert to 32bit integer
-                                        }
-                                        return hash;
-                                    };
-        var address = username.hashCode();
-        if (address == id) {
-            User.findOneAndUpdate({'local.email': username}, {'local.active' : 1}).exec(function(err, data) {
+        var username;
+        User.findOne({'local.verifyNumber' : id}, { findAndModify: false}).exec(function(err, data) {
+            if (data) {
+                name = data.local.email;
+            }
+            else {
+                console.log("Error: " + err);
+            }
+            doSomethingElse(data);
+        });
+        function doSomethingElse(name) {
+            //console.log(name.local.email);
+            username = name.local.email;
+            String.prototype.hashCode = function() {
+                var hash = 0, i, chr;
+                if (this.length === 0) return hash;
+                for (i = 0; i < this.length; i++) {
+                    chr   = this.charCodeAt(i);
+                    hash  = ((hash << 5) - hash) + chr;
+                    hash |= 0; // Convert to 32bit integer
+                }
+                return hash;
+            };
+            var address = username.hashCode();
+            if (address == id) {
+                User.findOneAndUpdate({'local.email': username}, {'local.active' : 1}).exec(function(err, data) {
                 if (data)
-                    console.log("Success");
+                console.log("Success");
                 else
-                    console.log("Error: " + err);
-                    res.redirect('/login');
-            })
-        }
-        else {
-            res.redirect('/login');
-        }
+                console.log("Error: " + err);
+                res.redirect('/login');
+                })
+            }
+            else {
+                res.redirect('/login');
+            }
+        };
     });
 
-    app.post('/change', isLoggedIn, function(req, res) {
+    app.post('/change', function(req, res) {
+        if (!(isEmptyObject(req.body.current_email))) {
+            var old_username = req.body.current_email
+        }
         if (!(isEmptyObject(req.body.new_email))) {
             var new_username = req.body.new_email;
         }
         if (!(isEmptyObject(req.body.verify_password) && isEmptyObject(req.body.new_password))) {
             if (req.body.verify_password == req.body.new_password) {
                 var new_password = req.body.new_password;
-                new_password = bcrypt.hashSync(new_password, bcrypt.genSaltSync(8), null);
             }
             else {
                 console.log("Passwords Don't Match");
                 res.render('account.ejs', { message: req.flash('accountMessage') });
             }
         }
-        User.update({'local.email': req.user.local.email}, 
-                                {'local.email': new_username,
-                                'local.password': new_password}).exec(function(err, data) {
-                                        if (data)
-                                            console.log("Updated");
-                                        else
-                                            console.log("Error: " + err);
-        })
-        res.redirect('/profile');
+        var strongRegex = new RegExp("^(?=.*[A-Z])(?=.*[!@#$&*])(?=.*[0-9])(?=.*[a-z].*[a-z].*[a-z]).{8,}$");
+        if (strongRegex.test(new_password)) {
+            User.update({'local.email': old_username}, {'local.email': new_username, 'local.password': newUser.generateHash(new_password)}).exec(function(err, data) {
+                                            if (data)
+                                                console.log("Updated");
+                                            else
+                                                console.log("Error: " + err);
+            });
+            res.redirect('/profile');
+        }
+        else {
+            res.render('account.ejs', { message: req.flash('Password must contain at least 1 lowercase and 1 uppercase alphabetical character, 1 numeric character, 1 special character that is of this selection, !@#\$%\^&, and be 8 characters or longer') });
+        }
+       
     })
 
     app.get('/gallery/:id', isLoggedIn, function(req, res) {
@@ -269,6 +304,72 @@ module.exports = function(app, passport) {
         })
     });
 
+    app.get('/forgot', function(req, res) {
+        res.render('forgot.ejs');
+    })
+    
+    app.post('/forgetful', function(req, res) {
+        console.log(req.body.email);
+        var id = req.body.email;
+        User.find({'local.email' : id}).exec(function(err, data) {
+            if (data) {
+                String.prototype.hashCode = function() {
+                    var hash = 0, i, chr;
+                    if (this.length === 0) return hash;
+                    for (i = 0; i < this.length; i++) {
+                        chr   = this.charCodeAt(i);
+                        hash  = ((hash << 5) - hash) + chr;
+                        hash |= 0; // Convert to 32bit integer
+                    }
+                    return hash;
+                };
+                var address = id.hashCode();
+                var mailOptions = {
+                    from: 'noreply@gmail.com',
+                    to: id,
+                    subject: 'Forgot Password?',
+                    text: 'Someone asked for a request to change your password. If this was not you ignore this email, otherwise please follow the link to change your password: http://localhost:3000/password/' + address
+                  };
+        
+                transporter.sendMail(mailOptions, function(error, info){
+                if (error) {
+                    console.log("Error with E-mail" + error);
+                } else {
+                    console.log('Email sent: ' + info.response);
+                }
+                });
+            }
+            else
+                console.log("Error: " + err);
+        })
+        res.redirect('/');
+    });
+
+    app.get('/password/:_id', function(req, res) {
+        User.findOne({'local.verifyNumber' : req.params._id}).exec(function(err, data) {
+            if (data) {
+                res.render('change_password.ejs', {
+                    user: data.local
+                });
+            }
+            else
+                console.log("Error:" + err);
+        })
+    });
+
+    app.post('/newpassword', function(req, res) {
+        User.findOneAndUpdate({'local.email' : req.body.email}, {'local.password' : newUser.generateHash(req.body.password)}).exec(function(err, data) {
+            if (data) {
+                console.log("Success with Forgotten Password");
+            }
+            else {
+                console.log("Error: " + err);
+            }
+
+        });
+        res.redirect('/login');
+    })
+
     app.post('/comment/:_id', function(req, res) {
         if (isEmptyObject(req.body.comment)) {
             console.log("Please Input Text");
@@ -282,11 +383,27 @@ module.exports = function(app, passport) {
             }
             else {
                 username = req.user.google.name;
+                gmail = req.user.google.email;
+                var mailOptions = {
+                    from: 'noreply@gmail.com',
+                    to: email,
+                    subject: 'Someone Commented on Your Photo',
+                    text: 'To Change Your Account Settings, Please Follow The Link Below: http://localhost:3000/settings/' + address
+                  };
+        
+                transporter.sendMail(mailOptions, function(error, info){
+                if (error) {
+                    console.log("Error with E-mail" + error);
+                } else {
+                    console.log('Email sent: ' + info.response);
+                }
+                });
             }
             newComment.comment.username = username;
             newComment.save(function(err) {
                 if (err) console.log(err);
             })
+
         }
         res.redirect('/gallery/1');
     })

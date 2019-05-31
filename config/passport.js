@@ -4,10 +4,11 @@ var FacebookStrategy    = require('passport-facebook').Strategy;
 var BearerStrategy      = require('passport-http-bearer').Strategy;
 var User                = require('../app/models/user');
 var nodemailer          = require('nodemailer');
+var crypto              = require('crypto');
 var transporter         = nodemailer.createTransport({
                             service: 'gmail',
                             auth: {
-                                user: 'tristan456jones@gmail.com',
+                                user: 'camagru.co@gmail.com',
                                 pass: 'lolajones'
                             }
                             });
@@ -53,6 +54,8 @@ module.exports = function(passport) {
         // User.findOne wont fire unless data is sent back
         process.nextTick(function() {
 
+        var strongRegex = new RegExp("^(?=.*[A-Z])(?=.*[!@#$&*])(?=.*[0-9])(?=.*[a-z].*[a-z].*[a-z]).{8,}$");
+        if (strongRegex.test(password)) {
         // find a user whose email is the same as the forms email
         // we are checking to see if the user trying to login already exists
         User.findOne({ 'local.email' :  email }, function(err, user) {
@@ -92,7 +95,6 @@ module.exports = function(passport) {
                     subject: 'Account Verification for Camagru2.0',
                     text: 'To Verify Your Account, Please Follow The Link Below: http://localhost:3000/verify/' + address
                   };
-        
                 transporter.sendMail(mailOptions, function(error, info){
                 if (error) {
                     console.log(error);
@@ -100,7 +102,7 @@ module.exports = function(passport) {
                     console.log('Email sent: ' + info.response);
                 }
                 });
-
+                newUser.local.verifyNumber = address;
                 // save the user
                 newUser.save(function(err) {
                     if (err)
@@ -108,10 +110,13 @@ module.exports = function(passport) {
                     return done(null, newUser);
                 });
             }
-
         });    
-
+    }
+    else {
+        return done(null, false, req.flash('signupMessage', 'Password must contain at least 1 lowercase and 1 uppercase alphabetical character, 1 numeric character, 1 special character that is of this selection, !@#\$%\^&, and be 8 characters or longer'));
+    }
         });
+    
 
     }));
     // =========================================================================
